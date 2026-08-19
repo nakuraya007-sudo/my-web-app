@@ -1,0 +1,162 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isSignedIn() && 
+             request.auth.token.email.lower() == 'nakuraya007@gmail.com'.lower() &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Posts collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && 
+                      isValidPost(request.resource.data) &&
+                      request.resource.data.userId == request.auth.uid &&
+                      request.resource.data.createdAt == request.time;
+      
+      allow update: if isSignedIn() && (
+                      // Only owner or author can edit content
+                      ((request.auth.uid == resource.data.userId || isOwner()) && 
+                       isValidPost(request.resource.data) && 
+                       request.resource.data.createdAt == resource.data.createdAt) ||
+                      // Anyone can like (add/remove their UID from likes array)
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) &&
+                       request.resource.data.likes is list &&
+                       request.resource.data.likes.size() <= 10000)
+                    );
+      
+      allow delete: if isOwner() || (isSignedIn() && request.auth.uid == resource.data.userId);
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.resource.data.createdAt == request.time;
+        allow update: if isSignedIn() && request.auth.uid == resource.data.userId &&
+                        request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      }
+    }
+
+    // Site Followers
+    match /site_followers/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users collection (for reading progress and notifications)
+    match /users/{userId} {
+      match /progress/{storyId} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
+      match /notifications/{notifId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow write: if isOwner() || (isSignedIn() && request.auth.uid == userId);
+      }
+    }
+
+    // Site Config collection
+    match /site_config/{configId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    // Admin Notifications
+    match /admin_notifications/{notifId} {
+      allow read: if isSignedIn() && request.auth.token.email.lower() == 'nakuraya007@gmail.com'.lower();
+      allow create: if isSignedIn();
+      allow update, delete: if isOwner();
+    }
+
+    // Global Notifications (Announcements)
+    match /global_notifications/{notifId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    // Follows root collection
+    match /follows/{followId} {
+      allow read: if isOwner() || (isSignedIn() && request.auth.uid == resource.data.userId);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Stories collection
+    match /stories/{storyId} {
+      allow read: if true;
+      allow create: if isOwner() && isValidStory(request.resource.data);
+      allow update: if isOwner() || 
+                    (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating']));
+      allow delete: if isOwner();
+
+      // Chapters subcollection
+      match /chapters/{chapterId} {
+        allow read: if isOwner() || resource.data.get('visibility', 'public') == 'public';
+        allow write: if isOwner();
+
+        match /comments/{commentId} {
+          allow read: if true;
+          allow create: if isSignedIn() && 
+                          request.resource.data.userId == request.auth.uid &&
+                          request.resource.data.createdAt == request.time;
+          allow delete: if isOwner() || (isSignedIn() && resource.data.userId == request.auth.uid);
+        }
+      }
+
+      // Reviews subcollection
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                        request.resource.data.userId == request.auth.uid &&
+                        request.resource.data.createdAt == request.time;
+        allow update: if isSignedIn() && request.auth.uid == resource.data.userId &&
+                        request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      }
+
+      // Followers subcollection
+      match /followers/{userId} {
+        allow read: if isOwner() || (isSignedIn() && request.auth.uid == userId);
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['userId', 'content', 'likes', 'createdAt']) &&
+             data.userId is string &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.likes is list &&
+             (data.get('imageUrl', null) == null || data.imageUrl is string);
+    }
+
+    function isValidStory(data) {
+      return data.keys().hasAll(['title', 'description', 'coverImage', 'authorId', 'authorName', 'categories', 'status', 'views', 'rating', 'chapterCount', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 10000 &&
+             data.coverImage is string &&
+             data.authorId is string &&
+             data.authorName is string &&
+             data.categories is list &&
+             data.status in ['ongoing', 'completed', 'dropped'] &&
+             data.views is number &&
+             data.rating is number &&
+             data.chapterCount is number;
+    }
+  }
+}

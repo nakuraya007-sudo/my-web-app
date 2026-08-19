@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "User announcements or blog posts",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "content", "likes", "createdAt"]
+    },
+    "Story": {
+      "title": "Story",
+      "description": "Book/Story entry",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "hanViet": { "type": "string" },
+        "description": { "type": "string" },
+        "originalAuthor": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "perspective": { "type": "string" },
+        "achievements": { "type": "array", "items": { "type": "string" } },
+        "warning": { "type": "string" },
+        "info": { "type": "string" },
+        "status": { "type": "string", "enum": ["ongoing", "completed", "dropped"] },
+        "visibility": { "type": "string", "enum": ["public", "draft"] },
+        "views": { "type": "number" },
+        "rating": { "type": "number" },
+        "chapterCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "coverImage", "authorId", "authorName", "categories", "status", "visibility", "views", "rating", "chapterCount", "createdAt"]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "description": "A single chapter in a story",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "chapterNumber": { "type": "number" },
+        "visibility": { "type": "string", "enum": ["public", "draft"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "chapterNumber", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User review for a story",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "content", "rating", "createdAt"]
+    },
+    "ChapterComment": {
+      "title": "ChapterComment",
+      "description": "User comment for a specific chapter or paragraph",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userAvatar": { "type": "string" },
+        "content": { "type": "string" },
+        "paragraphIndex": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Collection of announcements"
+    },
+    "/posts/{postId}/likes/{userId}": {
+      "schema": { "type": "object", "properties": { "userId": { "type": "string" } } },
+      "description": "Tracks users who liked a post"
+    },
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Collection of stories"
+    },
+    "/stories/{storyId}/chapters/{chapterId}": {
+      "schema": "Chapter",
+      "description": "Chapters for a story"
+    },
+    "/stories/{storyId}/chapters/{chapterId}/comments/{commentId}": {
+      "schema": "ChapterComment",
+      "description": "Comments for a chapter or specific paragraph"
+    },
+    "/stories/{storyId}/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Reviews for a story"
+    },
+    "/stories/{storyId}/followers/{userId}": {
+      "schema": { "type": "object", "properties": { "userId": { "type": "string" } } },
+      "description": "Tracks users following a story"
+    }
+  }
+}
